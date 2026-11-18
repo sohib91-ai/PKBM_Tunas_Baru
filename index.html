@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sistem Jurnal & Presensi Sekolah</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    body { background-color: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+    .hidden { display: none !important; }
+    .sidebar { min-height: 100vh; background: #1e293b; color: white; width: 250px; flex-shrink: 0; }
+    .sidebar .nav-link { color: #cbd5e1; border-radius: 8px; margin-bottom: 5px; cursor: pointer; }
+    .sidebar .nav-link:hover, .sidebar .nav-link.active { background: #3b82f6; color: white; }
+    .school-logo { width: 55px; height: 55px; object-fit: contain; background: white; border-radius: 8px; padding: 3px; }
+    .school-banner { width: 100%; max-height: 150px; object-fit: cover; border-radius: 10px; }
+    .avatar-guru { width: 70px; height: 70px; object-fit: cover; border-radius: 50%; border: 3px solid #3b82f6; }
+    .table-scroll { max-height: 360px; overflow-y: auto; }
+    @media (max-width: 768px) {
+      .layout-wrapper { flex-direction: column; }
+      .sidebar { width: 100%; min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== HALAMAN LOGIN ==================== -->
+  <div id="pageLogin" class="container py-5">
+    <div class="card shadow-sm border-0 mx-auto p-4" style="max-width: 400px; border-radius: 12px;">
+      <div class="text-center mb-3">
+        <i class="bi bi-mortarboard-fill text-primary" style="font-size: 3rem;"></i>
+        <h4 class="fw-bold mt-2">Sistem Jurnal & Presensi</h4>
+        <p class="text-muted small">Masuk sebagai Administrator atau Guru</p>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Username</label>
+        <input type="text" id="loginUser" class="form-control" placeholder="Username">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Password</label>
+        <input type="password" id="loginPass" class="form-control" placeholder="Password">
+      </div>
+      <button id="btnLogin" onclick="login()" class="btn btn-primary w-100 fw-bold">Masuk Aplikasi</button>
+    </div>
+  </div>
+
+  <!-- ==================== DASHBOARD ADMIN ==================== -->
+  <div id="pageAdmin" class="d-flex layout-wrapper hidden">
+    <div class="sidebar p-3 d-flex flex-column">
+      <div class="d-flex align-items-center gap-2 mb-4 pb-3 border-bottom border-secondary">
+        <img id="adminSidebarLogo" src="https://via.placeholder.com/50?text=Logo" class="school-logo">
+        <div>
+          <h6 id="adminSidebarSchoolName" class="m-0 fw-bold small">Nama Sekolah</h6>
+          <span class="badge bg-primary">Panel Admin</span>
+        </div>
+      </div>
+
+      <ul class="nav flex-column mb-auto">
+        <li class="nav-item"><a class="nav-link active" onclick="bukaMenuAdmin('secDashboard', this)"><i class="bi bi-speedometer2 me-2"></i> Dashboard & Data</a></li>
+        <li class="nav-item"><a class="nav-link" onclick="bukaMenuAdmin('secRekapAdmin', this)"><i class="bi bi-clipboard-data me-2"></i> Rekap Kehadiran</a></li>
+        <li class="nav-item"><a class="nav-link" onclick="bukaMenuAdmin('secGuru', this)"><i class="bi bi-person-badge me-2"></i> Akun Guru</a></li>
+        <li class="nav-item"><a class="nav-link" onclick="bukaMenuAdmin('secSiswa', this)"><i class="bi bi-people me-2"></i> Data Murid</a></li>
+        <li class="nav-item"><a class="nav-link" onclick="bukaMenuAdmin('secMapel', this)"><i class="bi bi-book me-2"></i> Mata Pelajaran</a></li>
+        <li class="nav-item"><a class="nav-link" onclick="bukaMenuAdmin('secSetting', this)"><i class="bi bi-gear me-2"></i> Setting Sekolah & Kepsek</a></li>
+      </ul>
+
+      <button onclick="logout()" class="btn btn-outline-danger btn-sm w-100 mt-3"><i class="bi bi-box-arrow-left me-1"></i> Keluar</button>
+    </div>
+
+    <div class="flex-grow-1 p-3 p-md-4">
+      <img id="adminBannerImg" src="" class="school-banner mb-3 hidden">
+
+      <!-- 1. DASHBOARD STATISTIK -->
+      <div id="secDashboard" class="admin-sec">
+        <h4 class="fw-bold mb-3">Ringkasan Data Sekolah</h4>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <div class="card border-0 shadow-sm p-3 bg-primary text-white">
+              <div class="d-flex justify-content-between align-items-center">
+                <div><h6 class="mb-1">Total Akun Guru</h6><h2 id="statJmlGuru" class="fw-bold m-0">0</h2></div>
+                <i class="bi bi-person-workspace" style="font-size: 2.5rem; opacity: 0.7;"></i>
+              </div>
+              <div class="mt-3 pt-2 border-top border-light d-flex gap-2">
+                <button onclick="exportMasterExcel('guru')" class="btn btn-light btn-sm text-success fw-bold"><i class="bi bi-file-earmark-excel"></i> Unduh Excel</button>
+                <button onclick="exportMasterPDF('guru')" class="btn btn-light btn-sm text-danger fw-bold"><i class="bi bi-file-earmark-pdf"></i> Unduh PDF</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="card border-0 shadow-sm p-3 bg-success text-white">
+              <div class="d-flex justify-content-between align-items-center">
+                <div><h6 class="mb-1">Total Murid Terdaftar</h6><h2 id="statJmlSiswa" class="fw-bold m-0">0</h2></div>
+                <i class="bi bi-people-fill" style="font-size: 2.5rem; opacity: 0.7;"></i>
+              </div>
+              <div class="mt-3 pt-2 border-top border-light d-flex gap-2">
+                <button onclick="exportMasterExcel('siswa')" class="btn btn-light btn-sm text-success fw-bold"><i class="bi bi-file-earmark-excel"></i> Unduh Excel</button>
+                <button onclick="exportMasterPDF('siswa')" class="btn btn-light btn-sm text-danger fw-bold"><i class="bi bi-file-earmark-pdf"></i> Unduh PDF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. REKAP KEHADIRAN -->
+      <div id="secRekapAdmin" class="admin-sec hidden">
+        <h4 class="fw-bold mb-3">Rekapitulasi Kehadiran Sekolah</h4>
+
+        <!-- REKAP GURU -->
+        <div class="card border-0 shadow-sm p-3 mb-4">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <h6 class="fw-bold text-primary m-0"><i class="bi bi-person-check me-1"></i> Rekap Kehadiran Guru</h6>
+              <select id="filterGuruAdminGuru" class="form-select form-select-sm" style="width: 190px;" onchange="renderRekapAdminGuru()">
+                <option value="ALL">Semua Guru</option>
+              </select>
+            </div>
+            <div class="d-flex gap-2">
+              <button onclick="unduhMatriksGuru('excel', 'admin')" class="btn btn-success btn-sm fw-semibold"><i class="bi bi-file-earmark-excel"></i> Unduh Excel (Per Hari)</button>
+              <button onclick="unduhMatriksGuru('pdf', 'admin')" class="btn btn-danger btn-sm fw-semibold"><i class="bi bi-file-earmark-pdf"></i> Unduh PDF (Per Hari)</button>
+            </div>
+          </div>
+
+          <div class="table-scroll">
+            <table class="table table-bordered table-sm text-center align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>No</th><th>NIP</th><th class="text-start">Nama Guru</th>
+                  <th class="bg-success text-white" style="width:65px;">H</th>
+                  <th class="bg-warning" style="width:65px;">I</th>
+                  <th class="bg-info text-white" style="width:65px;">S</th>
+                  <th class="bg-danger text-white" style="width:65px;">A</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyRekapAdminGuru"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- REKAP SISWA -->
+        <div class="card border-0 shadow-sm p-3">
+          <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+            <h6 class="fw-bold text-success m-0"><i class="bi bi-people me-1"></i> Rekap Kehadiran Siswa</h6>
+            <div class="d-flex gap-2">
+              <button onclick="unduhMatriksSiswa('excel', 'admin')" class="btn btn-success btn-sm fw-semibold"><i class="bi bi-file-earmark-excel"></i> Unduh Excel (Per Hari)</button>
+              <button onclick="unduhMatriksSiswa('pdf', 'admin')" class="btn btn-danger btn-sm fw-semibold"><i class="bi bi-file-earmark-pdf"></i> Unduh PDF (Per Hari)</button>
+            </div>
+          </div>
+
+          <div class="row g-2 mb-3 bg-light p-2 rounded border">
+            <div class="col-md-4">
+              <label class="form-label small fw-bold mb-1">Filter Kelas:</label>
+              <select id="filterKelasRekapAdmin" class="form-select form-select-sm" onchange="renderRekapAdminSiswa()">
+                <option value="ALL">Semua Kelas</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold mb-1">Filter Guru Pengajar:</label>
+              <select id="filterGuruRekapAdmin" class="form-select form-select-sm" onchange="renderRekapAdminSiswa()">
+                <option value="ALL">Semua Guru</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-bold mb-1">Filter Mata Pelajaran:</label>
+              <select id="filterMapelRekapAdmin" class="form-select form-select-sm" onchange="renderRekapAdminSiswa()">
+                <option value="ALL">Semua Mata Pelajaran</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-scroll">
+            <table class="table table-bordered table-sm text-center align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>No</th><th>NISN</th><th class="text-start">Nama Siswa</th><th>Kelas</th>
+                  <th class="bg-success text-white" style="width:65px;">H</th>
+                  <th class="bg-warning" style="width:65px;">I</th>
+                  <th class="bg-info text-white" style="width:65px;">S</th>
+                  <th class="bg-danger text-white" style="width:65px;">A</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyRekapAdminSiswa"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. KELOLA AKUN GURU -->
+      <div id="secGuru" class="admin-sec hidden">
+        <div class="card border-0 shadow-sm p-3 mb-3">
+          <h5 id="titleFormGuru" class="fw-bold text-primary mb-3">+ Tambah Akun Guru</h5>
+          <input type="hidden" id="editGuruId">
+          <div class="row g-2">
+            <div class="col-md-6"><input type="text" id="guruNama" class="form-control" placeholder="Nama Lengkap & Gelar"></div>
+            <div class="col-md-6"><input type="text" id="guruNip" class="form-control" placeholder="NIP"></div>
+            <div class="col-md-6"><input type="text" id="guruUser" class="form-control" placeholder="Username"></div>
+            <div class="col-md-6"><input type="text" id="guruPass" class="form-control" placeholder="Password"></div>
+          </div>
+          <div class="mt-3 d-flex gap-2">
+            <button onclick="simpanGuru()" class="btn btn-primary fw-semibold">Simpan Data Guru</button>
+            <button id="btnBatalEditGuru" onclick="resetFormGuru()" class="btn btn-secondary hidden">Batal Edit</button>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-3">
+          <h6 class="fw-bold mb-2">Daftar Akun Guru</h6>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+              <thead class="table-light"><tr><th>Nama</th><th>NIP</th><th>Username</th><th>Password</th><th style="width:110px;">Aksi</th></tr></thead>
+              <tbody id="tbodyGuru"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. KELOLA DATA MURID -->
+      <div id="secSiswa" class="admin-sec hidden">
+        <div class="card border-0 shadow-sm p-3 mb-3">
+          <h5 id="titleFormSiswa" class="fw-bold text-success mb-3">+ Tambah Data Murid</h5>
+          <input type="hidden" id="editSiswaOldNisn">
+          <div class="row g-2">
+            <div class="col-md-4"><input type="text" id="siswaNisn" class="form-control" placeholder="NISN / NIS"></div>
+            <div class="col-md-5"><input type="text" id="siswaNama" class="form-control" placeholder="Nama Lengkap Murid"></div>
+            <div class="col-md-3"><input type="text" id="siswaKelas" class="form-control" placeholder="Kelas (Cth: 10 TKJ C)"></div>
+          </div>
+          <div class="mt-3 d-flex gap-2">
+            <button onclick="simpanSiswa()" class="btn btn-success fw-semibold">Simpan Data Murid</button>
+            <button id="btnBatalEditSiswa" onclick="resetFormSiswa()" class="btn btn-secondary hidden">Batal Edit</button>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-3">
+          <h6 class="fw-bold mb-2">Daftar Murid Terdaftar</h6>
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover align-middle">
+              <thead class="table-light"><tr><th>NISN</th><th>Nama Murid</th><th>Kelas</th><th style="width:110px;">Aksi</th></tr></thead>
+              <tbody id="tbodySiswa"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. MATA PELAJARAN -->
+      <div id="secMapel" class="admin-sec hidden">
+        <div class="card border-0 shadow-sm p-3 mb-3">
+          <h5 class="fw-bold mb-3">+ Tambah Mata Pelajaran</h5>
+          <div class="input-group">
+            <input type="text" id="inputMapel" class="form-control" placeholder="Nama Mata Pelajaran">
+            <button onclick="simpanMapel()" class="btn btn-primary">Tambah</button>
+          </div>
+        </div>
+        <div class="card border-0 shadow-sm p-3">
+          <table class="table table-bordered align-middle">
+            <thead class="table-light"><tr><th>Mata Pelajaran</th><th style="width:90px;">Aksi</th></tr></thead>
+            <tbody id="tbodyMapel"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 6. SETTING SEKOLAH & KEPALA SEKOLAH -->
+      <div id="secSetting" class="admin-sec hidden">
+        <div class="card border-0 shadow-sm p-4">
+          <h5 class="fw-bold mb-3"><i class="bi bi-building-gear me-2"></i>Pengaturan Sekolah & Tanda Tangan Laporan</h5>
+          <div class="row g-3 mb-3">
+            <div class="col-md-12">
+              <label class="form-label fw-semibold">Nama Sekolah</label>
+              <input type="text" id="setNamaSekolah" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Nama Kepala Sekolah (Untuk TTD Laporan PDF)</label>
+              <input type="text" id="setNamaKepsek" class="form-control" placeholder="Contoh: RIFKI HASBULLAH FAUZI">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">NIP Kepala Sekolah</label>
+              <input type="text" id="setNipKepsek" class="form-control" placeholder="Contoh: 4956766667200010">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Unggah Logo Sekolah</label>
+            <input type="file" id="fileLogoSekolah" class="form-control" accept="image/*">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Unggah Foto Gedung Sekolah (Banner)</label>
+            <input type="file" id="fileBannerSekolah" class="form-control" accept="image/*">
+          </div>
+          <button id="btnSimpanSetting" onclick="simpanSettingSekolah()" class="btn btn-primary fw-bold">Simpan Pengaturan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== DASHBOARD GURU ==================== -->
+  <div id="pageGuru" class="container py-3 hidden" style="max-width: 980px;">
+    <div class="card border-0 shadow-sm p-3 mb-3 bg-white">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3">
+          <img id="guruHeaderLogo" src="https://via.placeholder.com/55?text=Logo" class="school-logo border">
+          <div>
+            <small id="guruHeaderSchoolName" class="text-primary fw-bold text-uppercase d-block">NAMA SEKOLAH</small>
+            <h5 id="guruHeaderNama" class="m-0 fw-bold">Nama Guru</h5>
+            <small id="guruHeaderNip" class="text-muted">NIP: -</small>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <img id="guruAvatarImg" src="https://via.placeholder.com/70?text=Foto" class="avatar-guru">
+          <button onclick="logout()" class="btn btn-outline-danger btn-sm">Keluar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigasi Menu Guru -->
+    <ul class="nav nav-pills mb-3 bg-white p-2 rounded shadow-sm gap-1">
+      <li class="nav-item"><button class="nav-link active" onclick="bukaMenuGuru('gTabAbsenGuru', this)">1. Absen Guru</button></li>
+      <li class="nav-item"><button class="nav-link" onclick="bukaMenuGuru('gTabJurnal', this)">2. Jurnal & Absen Murid</button></li>
+      <li class="nav-item"><button class="nav-link" onclick="bukaMenuGuru('gTabEditAbsen', this)">3. Edit Kehadiran</button></li>
+      <li class="nav-item"><button class="nav-link" onclick="bukaMenuGuru('gTabRekapSiswa', this)">4. Rekap Absen Siswa</button></li>
+      <li class="nav-item"><button class="nav-link" onclick="bukaMenuGuru('gTabRekapGuru', this)">5. Rekap Absen Saya</button></li>
+      <li class="nav-item"><button class="nav-link" onclick="bukaMenuGuru('gTabProfil', this)">6. Foto & Password</button></li>
+    </ul>
+
+    <!-- TAB 1: ABSENSI GURU -->
+    <div id="gTabAbsenGuru" class="guru-sec card border-0 shadow-sm p-4 text-center">
+      <h5 class="fw-bold mb-2">Presensi Kehadiran Mengajar Guru</h5>
+      <p class="text-muted small mb-4">Klik status kehadiran Anda hari ini sebelum memulai pembelajaran.</p>
+      <div class="d-flex justify-content-center gap-2 flex-wrap">
+        <button onclick="kirimAbsenGuru('Hadir')" class="btn btn-success btn-lg px-4"><i class="bi bi-check-circle me-1"></i> Hadir</button>
+        <button onclick="kirimAbsenGuru('Sakit')" class="btn btn-info btn-lg px-4 text-white">Sakit</button>
+        <button onclick="kirimAbsenGuru('Izin')" class="btn btn-warning btn-lg px-4">Izin</button>
+        <button onclick="kirimAbsenGuru('Alfa')" class="btn btn-danger btn-lg px-4">Alfa</button>
+      </div>
+    </div>
+
+    <!-- TAB 2: JURNAL & ABSENSI MURID -->
+    <div id="gTabJurnal" class="guru-sec hidden">
+      <div class="card border-0 shadow-sm p-3 mb-3">
+        <h6 class="fw-bold text-primary mb-3">Formulir Jurnal Mengajar</h6>
+        <div class="row g-2 mb-3">
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Pilih Kelas</label>
+            <select id="guruKelas" class="form-select" onchange="renderSiswaKelasGuru()">
+              <option value="">-- Pilih Kelas --</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold">Mata Pelajaran</label>
+            <select id="guruMapel" class="form-select">
+              <option value="">-- Pilih Mata Pelajaran --</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-2">
+          <label class="form-label small fw-bold">Materi Pembelajaran</label>
+          <textarea id="guruMateri" class="form-control" rows="2"></textarea>
+        </div>
+        <div>
+          <label class="form-label small fw-bold">Tugas Siswa</label>
+          <textarea id="guruTugas" class="form-control" rows="1"></textarea>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm p-3 mb-3">
+        <h6 class="fw-bold text-primary mb-2">Daftar Presensi Murid</h6>
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle">
+            <thead class="table-light text-center"><tr><th style="width:40px;">No</th><th class="text-start">Nama Murid</th><th>Kehadiran</th></tr></thead>
+            <tbody id="tbodyAbsenSiswaGuru">
+              <tr><td colspan="3" class="text-center text-muted">Pilih kelas di atas untuk menampilkan daftar murid.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <button id="btnKirimJurnal" onclick="kirimJurnalGuru()" class="btn btn-primary btn-lg w-100 fw-bold">Simpan Jurnal & Kehadiran</button>
+    </div>
+
+    <!-- TAB 3: EDIT KEHADIRAN MURID -->
+    <div id="gTabEditAbsen" class="guru-sec card border-0 shadow-sm p-3 hidden">
+      <h6 class="fw-bold text-warning mb-3"><i class="bi bi-pencil-square me-1"></i>Koreksi / Edit Kehadiran Murid</h6>
+      <div class="mb-3">
+        <label class="form-label small fw-bold">Pilih Riwayat Jurnal Mengajar Anda:</label>
+        <select id="selectRiwayatJurnal" class="form-select" onchange="tampilkanDetailEditAbsen()">
+          <option value="">-- Pilih Riwayat Kelas & Tanggal --</option>
+        </select>
+      </div>
+      <div id="areaEditPresensiDetail" class="hidden">
+        <table class="table table-bordered align-middle">
+          <thead class="table-light"><tr><th>Nama Murid</th><th>Ubah Status Kehadiran</th></tr></thead>
+          <tbody id="tbodyEditPresensi"></tbody>
+        </table>
+        <button onclick="simpanPerubahanAbsen()" class="btn btn-warning fw-bold w-100">Simpan Perubahan Kehadiran</button>
+      </div>
+    </div>
+
+    <!-- TAB 4: REKAP ABSENSI SISWA -->
+    <div id="gTabRekapSiswa" class="guru-sec card border-0 shadow-sm p-3 hidden">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <h6 class="fw-bold text-primary m-0">Rekap Kehadiran Siswa</h6>
+          <select id="filterKelasRekapGuru" class="form-select form-select-sm" style="width: 145px;" onchange="renderRekapGuruSiswa()">
+            <option value="ALL">Semua Kelas</option>
+          </select>
+          <select id="filterMapelRekapGuru" class="form-select form-select-sm" style="width: 165px;" onchange="renderRekapGuruSiswa()">
+            <option value="ALL">Semua Mapel</option>
+          </select>
+        </div>
+        <div class="d-flex gap-2">
+          <button onclick="unduhMatriksSiswa('excel', 'guru')" class="btn btn-success btn-sm fw-semibold"><i class="bi bi-file-earmark-excel"></i> Unduh Excel (Per Hari)</button>
+          <button onclick="unduhMatriksSiswa('pdf', 'guru')" class="btn btn-danger btn-sm fw-semibold"><i class="bi bi-file-earmark-pdf"></i> Unduh PDF (Per Hari)</button>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table class="table table-bordered table-sm text-center align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>No</th><th>NISN</th><th class="text-start">Nama Siswa</th><th>Kelas</th>
+              <th class="bg-success text-white" style="width:65px;">H</th>
+              <th class="bg-warning" style="width:65px;">I</th>
+              <th class="bg-info text-white" style="width:65px;">S</th>
+              <th class="bg-danger text-white" style="width:65px;">A</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyRekapGuruSiswa"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 5: REKAP ABSENSI GURU PRIBADI -->
+    <div id="gTabRekapGuru" class="guru-sec card border-0 shadow-sm p-3 hidden">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <h6 class="fw-bold text-success m-0">Rekap Kehadiran Mengajar Saya</h6>
+        <div class="d-flex gap-2">
+          <button onclick="unduhMatriksGuru('excel', 'guru')" class="btn btn-success btn-sm fw-semibold"><i class="bi bi-file-earmark-excel"></i> Unduh Excel (Per Hari)</button>
+          <button onclick="unduhMatriksGuru('pdf', 'guru')" class="btn btn-danger btn-sm fw-semibold"><i class="bi bi-file-earmark-pdf"></i> Unduh PDF (Per Hari)</button>
+        </div>
+      </div>
+
+      <div class="row g-2 text-center">
+        <div class="col-3"><div class="p-3 rounded bg-success text-white"><small class="fw-bold">HADIR (H)</small><h2 id="sumGuruHadir" class="m-0 fw-bold">0</h2></div></div>
+        <div class="col-3"><div class="p-3 rounded bg-warning"><small class="fw-bold">IZIN (I)</small><h2 id="sumGuruIzin" class="m-0 fw-bold">0</h2></div></div>
+        <div class="col-3"><div class="p-3 rounded bg-info text-white"><small class="fw-bold">SAKIT (S)</small><h2 id="sumGuruSakit" class="m-0 fw-bold">0</h2></div></div>
+        <div class="col-3"><div class="p-3 rounded bg-danger text-white"><small class="fw-bold">ALFA (A)</small><h2 id="sumGuruAlfa" class="m-0 fw-bold">0</h2></div></div>
+      </div>
+    </div>
+
+    <!-- TAB 6: FOTO & PASSWORD -->
+    <div id="gTabProfil" class="guru-sec card border-0 shadow-sm p-4 hidden">
+      <h6 class="fw-bold mb-3">Pengaturan Profil & Keamanan Akun Guru</h6>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Unggah Foto Profil Guru</label>
+        <input type="file" id="fileFotoGuru" class="form-control" accept="image/*">
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Ubah Password Baru (Kosongkan jika tidak ingin mengganti)</label>
+        <input type="password" id="guruPassBaru" class="form-control" placeholder="Masukkan password baru">
+      </div>
+      <button id="btnSimpanProfilGuru" onclick="simpanProfilGuru()" class="btn btn-primary fw-bold">Simpan Foto & Password</button>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // TEMPELKAN URL WEB APP GOOGLE APPS SCRIPT ANDA DI DALAM TANDA KUTIP INI:
+    const API_URL = "https://script.google.com/macros/s/AKfycbyEq3twRJ4cgkRW6RwCradGjqvrzKK9aMzFEZGoH-s23foQrrNRrxFreH8MBosttGzu/exec";
+    // =========================================================================
+
+    let currentUser = null;
+    let appData = {};
+
+    async function callAPI(action, payload = {}) {
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({ action: action, payload: payload })
+        });
+        return await response.json();
+      } catch (error) {
+        alert("Koneksi ke server Google Sheets gagal. Pastikan URL API benar dan deployment diatur ke 'Anyone'.\nDetail: " + error.message);
+        return { status: "error" };
+      }
+    }
+
+    function kodeHuruf(st) {
+      if (st === 'Hadir' || st === 'Hadir Mengajar') return 'H';
+      if (st === 'Izin') return 'I';
+      if (st === 'Sakit') return 'S';
+      if (st === 'Alfa') return 'A';
+      return '';
+    }
+
+    function compressImageToBase64(file, maxWidth, callback) {
+      if (!file) return callback(null);
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          const scale = maxWidth / img.width;
+          canvas.width = maxWidth;
+          canvas.height = img.height * scale;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          callback(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function login() {
+      const u = document.getElementById('loginUser').value;
+      const p = document.getElementById('loginPass').value;
+      if (!u || !p) return alert("Masukkan username dan password!");
+
+      const btn = document.getElementById('btnLogin');
+      btn.disabled = true; btn.innerText = "Memuat...";
+
+      const res = await callAPI('login', { username: u, password: p });
+      btn.disabled = false; btn.innerText = "Masuk Aplikasi";
+
+      if (res.status === 'success') {
+        currentUser = res.user;
+        document.getElementById('pageLogin').classList.add('hidden');
+        await refreshAllData();
+      } else if (res.message) {
+        alert(res.message);
+      }
+    }
+
+    async function refreshAllData() {
+      const uname = currentUser.role === 'Guru' ? currentUser.username : null;
+      const data = await callAPI('getAllData', { usernameGuru: uname });
+      if (data && data.pengaturan) {
+        appData = data;
+        if (currentUser.role === 'Admin') {
+          document.getElementById('pageAdmin').classList.remove('hidden');
+          renderAdminUI();
+        } else {
+          document.getElementById('pageGuru').classList.remove('hidden');
+          renderGuruUI();
+        }
+      }
+    }
+
+    function logout() { location.reload(); }
+
+    // ================= LOGIKA ADMIN =================
+    function bukaMenuAdmin(secId, el) {
+      document.querySelectorAll('.admin-sec').forEach(s => s.classList.add('hidden'));
+      document.getElementById(secId).classList.remove('hidden');
+      document.querySelectorAll('.sidebar .nav-link').forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    function renderAdminUI() {
+      document.getElementById('adminSidebarSchoolName').innerText = appData.pengaturan.namaSekolah;
+      document.getElementById('setNamaSekolah').value = appData.pengaturan.namaSekolah;
+      document.getElementById('setNamaKepsek').value = appData.pengaturan.namaKepsek;
+      document.getElementById('setNipKepsek').value = appData.pengaturan.nipKepsek;
+
+      if (appData.pengaturan.logo) document.getElementById('adminSidebarLogo').src = appData.pengaturan.logo;
+      if (appData.pengaturan.banner) {
+        const b = document.getElementById('adminBannerImg');
+        b.src = appData.pengaturan.banner;
+        b.classList.remove('hidden');
+      }
+
+      document.getElementById('statJmlGuru').innerText = appData.guru.length + " Guru";
+      document.getElementById('statJmlSiswa').innerText = appData.siswa.length + " Murid";
+
+      document.getElementById('tbodyGuru').innerHTML = appData.guru.map((g, idx) => `
+        <tr>
+          <td>${g.nama}</td><td>${g.nip}</td><td>${g.username}</td><td>${g.password}</td>
+          <td>
+            <button class="btn btn-warning btn-sm" onclick="siapkanEditGuru(${idx})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="hapusDataGuru('${g.id}')"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`).join('');
+
+      document.getElementById('tbodySiswa').innerHTML = appData.siswa.map((s, idx) => `
+        <tr>
+          <td>${s.nisn}</td><td>${s.nama}</td><td>${s.kelas}</td>
+          <td>
+            <button class="btn btn-warning btn-sm" onclick="siapkanEditSiswa(${idx})"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="hapusDataSiswa('${s.nisn}')"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>`).join('');
+
+      document.getElementById('tbodyMapel').innerHTML = appData.mapel.map(m => `
+        <tr>
+          <td>${m.nama}</td>
+          <td><button class="btn btn-danger btn-sm" onclick="hapusDataMapel('${m.id}')"><i class="bi bi-trash"></i></button></td>
+        </tr>`).join('');
+
+      const optGuru = '<option value="ALL">Semua Guru</option>' + appData.guru.map(g => `<option value="${g.username}">${g.nama}</option>`).join('');
+      document.getElementById('filterGuruAdminGuru').innerHTML = optGuru;
+      document.getElementById('filterGuruRekapAdmin').innerHTML = optGuru;
+      document.getElementById('filterKelasRekapAdmin').innerHTML = '<option value="ALL">Semua Kelas</option>' +
+        appData.kelasUnik.map(k => `<option value="${k}">${k}</option>`).join('');
+      document.getElementById('filterMapelRekapAdmin').innerHTML = '<option value="ALL">Semua Mata Pelajaran</option>' +
+        appData.mapel.map(m => `<option value="${m.nama}">${m.nama}</option>`).join('');
+
+      renderRekapAdminGuru();
+      renderRekapAdminSiswa();
+    }
+
+    function renderRekapAdminGuru() {
+      const fGuru = document.getElementById('filterGuruAdminGuru').value;
+      const targetGuru = fGuru === 'ALL' ? appData.guru : appData.guru.filter(g => g.username === fGuru);
+
+      document.getElementById('tbodyRekapAdminGuru').innerHTML = targetGuru.map((g, idx) => {
+        const logs = appData.rawAbsenGuru.filter(a => a.username === g.username);
+        const h = logs.filter(a => a.status === 'Hadir' || a.status === 'Hadir Mengajar').length;
+        const i = logs.filter(a => a.status === 'Izin').length;
+        const s = logs.filter(a => a.status === 'Sakit').length;
+        const al = logs.filter(a => a.status === 'Alfa').length;
+        return `
+          <tr>
+            <td>${idx + 1}</td><td>${g.nip}</td><td class="text-start fw-semibold">${g.nama}</td>
+            <td class="fw-bold text-success">${h}</td>
+            <td class="fw-bold text-warning">${i}</td>
+            <td class="fw-bold text-info">${s}</td>
+            <td class="fw-bold text-danger">${al}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    function renderRekapAdminSiswa() {
+      const fKelas = document.getElementById('filterKelasRekapAdmin').value;
+      const fGuru = document.getElementById('filterGuruRekapAdmin').value;
+      const fMapel = document.getElementById('filterMapelRekapAdmin').value;
+
+      const logsFiltered = appData.rawPresensiSiswa.filter(p => {
+        return (fKelas === 'ALL' || p.kelas === fKelas) &&
+               (fGuru === 'ALL' || p.usernameGuru === fGuru) &&
+               (fMapel === 'ALL' || p.mapel === fMapel);
+      });
+
+      const listSiswa = fKelas === 'ALL' ? appData.siswa : appData.siswa.filter(s => s.kelas === fKelas);
+      document.getElementById('tbodyRekapAdminSiswa').innerHTML = listSiswa.map((s, idx) => {
+        const logs = logsFiltered.filter(p => p.namaSiswa === s.nama && p.kelas === s.kelas);
+        const h = logs.filter(p => p.status === 'Hadir').length;
+        const iz = logs.filter(p => p.status === 'Izin').length;
+        const sk = logs.filter(p => p.status === 'Sakit').length;
+        const al = logs.filter(p => p.status === 'Alfa').length;
+        return `
+          <tr>
+            <td>${idx + 1}</td><td>${s.nisn}</td><td class="text-start fw-semibold">${s.nama}</td><td>${s.kelas}</td>
+            <td class="fw-bold text-success">${h}</td>
+            <td class="fw-bold text-warning">${iz}</td>
+            <td class="fw-bold text-info">${sk}</td>
+            <td class="fw-bold text-danger">${al}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    function siapkanEditGuru(idx) {
+      const g = appData.guru[idx];
+      document.getElementById('titleFormGuru').innerText = "Edit Akun Guru";
+      document.getElementById('editGuruId').value = g.id;
+      document.getElementById('guruNama').value = g.nama;
+      document.getElementById('guruNip').value = g.nip;
+      document.getElementById('guruUser').value = g.username;
+      document.getElementById('guruPass').value = g.password;
+      document.getElementById('btnBatalEditGuru').classList.remove('hidden');
+    }
+    function resetFormGuru() {
+      document.getElementById('titleFormGuru').innerText = "+ Tambah Akun Guru";
+      document.getElementById('editGuruId').value = "";
+      document.getElementById('guruNama').value = "";
+      document.getElementById('guruNip').value = "";
+      document.getElementById('guruUser').value = "";
+      document.getElementById('guruPass').value = "";
+      document.getElementById('btnBatalEditGuru').classList.add('hidden');
+    }
+    async function simpanGuru() {
+      const payload = {
+        id: document.getElementById('editGuruId').value,
+        nama: document.getElementById('guruNama').value,
+        nip: document.getElementById('guruNip').value,
+        username: document.getElementById('guruUser').value,
+        password: document.getElementById('guruPass').value
+      };
+      if (!payload.nama || !payload.username || !payload.password) return alert("Lengkapi form guru!");
+      const res = await callAPI('simpanGuru', payload);
+      alert(res.message); resetFormGuru(); await refreshAllData();
+    }
+    async function hapusDataGuru(id) {
+      if (confirm("Yakin hapus akun guru ini?")) {
+        const res = await callAPI('hapusGuru', { id: id });
+        alert(res.message); await refreshAllData();
+      }
+    }
+
+    function siapkanEditSiswa(idx) {
+      const s = appData.siswa[idx];
+      document.getElementById('titleFormSiswa').innerText = "Edit Data Murid";
+      document.getElementById('editSiswaOldNisn').value = s.nisn;
+      document.getElementById('siswaNisn').value = s.nisn;
+      document.getElementById('siswaNama').value = s.nama;
+      document.getElementById('siswaKelas').value = s.kelas;
+      document.getElementById('btnBatalEditSiswa').classList.remove('hidden');
+    }
+    function resetFormSiswa() {
+      document.getElementById('titleFormSiswa').innerText = "+ Tambah Data Murid";
+      document.getElementById('editSiswaOldNisn').value = "";
+      document.getElementById('siswaNisn').value = "";
+      document.getElementById('siswaNama').value = "";
+      document.getElementById('siswaKelas').value = "";
+      document.getElementById('btnBatalEditSiswa').classList.add('hidden');
+    }
+    async function simpanSiswa() {
+      const payload = {
+        oldNisn: document.getElementById('editSiswaOldNisn').value,
+        nisn: document.getElementById('siswaNisn').value,
+        nama: document.getElementById('siswaNama').value,
+        kelas: document.getElementById('siswaKelas').value
+      };
+      if (!payload.nisn || !payload.nama || !payload.kelas) return alert("Lengkapi data murid!");
+      const res = await callAPI('simpanSiswa', payload);
+      alert(res.message); resetFormSiswa(); await refreshAllData();
+    }
+    async function hapusDataSiswa(nisn) {
+      if (confirm("Yakin hapus data murid ini?")) {
+        const res = await callAPI('hapusSiswa', { nisn: nisn });
+        alert(res.message); await refreshAllData();
+      }
+    }
+
+    async function simpanMapel() {
+      const m = document.getElementById('inputMapel').value;
+      if (!m) return alert("Isi nama mata pelajaran!");
+      const res = await callAPI('tambahMapel', { namaMapel: m });
+      alert(res.message); document.getElementById('inputMapel').value = ''; await refreshAllData();
+    }
+    async function hapusDataMapel(id) {
+      const res = await callAPI('hapusMapel', { id: id });
+      alert(res.message); await refreshAllData();
+    }
+
+    function simpanSettingSekolah() {
+      const nama = document.getElementById('setNamaSekolah').value;
+      const namaKepsek = document.getElementById('setNamaKepsek').value;
+      const nipKepsek = document.getElementById('setNipKepsek').value;
+      const fLogo = document.getElementById('fileLogoSekolah').files[0];
+      const fBanner = document.getElementById('fileBannerSekolah').files[0];
+
+      const btn = document.getElementById('btnSimpanSetting');
+      btn.disabled = true; btn.innerText = "Mengunggah & Menyimpan...";
+
+      compressImageToBase64(fLogo, 150, function(logoB64) {
+        compressImageToBase64(fBanner, 700, async function(bannerB64) {
+          const res = await callAPI('simpanSetting', { namaSekolah: nama, logo: logoB64, banner: bannerB64, namaKepsek: namaKepsek, nipKepsek: nipKepsek });
+          btn.disabled = false; btn.innerText = "Simpan Pengaturan";
+          alert(res.message); await refreshAllData();
+        });
+      });
+    }
+
+    // ================= LOGIKA GURU =================
+    function bukaMenuGuru(secId, el) {
+      document.querySelectorAll('.guru-sec').forEach(s => s.classList.add('hidden'));
+      document.getElementById(secId).classList.remove('hidden');
+      document.querySelectorAll('#pageGuru .nav-link').forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    function renderGuruUI() {
+      document.getElementById('guruHeaderSchoolName').innerText = appData.pengaturan.namaSekolah;
+      if (appData.pengaturan.logo) document.getElementById('guruHeaderLogo').src = appData.pengaturan.logo;
+
+      document.getElementById('guruHeaderNama').innerText = currentUser.nama;
+      document.getElementById('guruHeaderNip').innerText = "NIP: " + currentUser.nip;
+      const guruObj = appData.guru.find(g => g.username === currentUser.username);
+      if (guruObj && guruObj.foto) document.getElementById('guruAvatarImg').src = guruObj.foto;
+
+      const optKelas = '<option value="">-- Pilih Kelas --</option>' + appData.kelasUnik.map(k => `<option value="${k}">${k}</option>`).join('');
+      const optMapel = '<option value="">-- Pilih Mata Pelajaran --</option>' + appData.mapel.map(m => `<option value="${m.nama}">${m.nama}</option>`).join('');
+
+      document.getElementById('guruKelas').innerHTML = optKelas;
+      document.getElementById('guruMapel').innerHTML = optMapel;
+
+      document.getElementById('filterKelasRekapGuru').innerHTML = '<option value="ALL">Semua Kelas</option>' +
+        appData.kelasUnik.map(k => `<option value="${k}">${k}</option>`).join('');
+      document.getElementById('filterMapelRekapGuru').innerHTML = '<option value="ALL">Semua Mapel</option>' +
+        appData.mapel.map(m => `<option value="${m.nama}">${m.nama}</option>`).join('');
+
+      document.getElementById('selectRiwayatJurnal').innerHTML = '<option value="">-- Pilih Riwayat Jurnal --</option>' +
+        appData.riwayatJurnal.map((r, i) => `<option value="${i}">${r.tanggal} (${r.jam}) - Kelas ${r.kelas} - ${r.mapel}</option>`).join('');
+
+      renderRekapGuruSiswa();
+      renderRekapGuruPribadi();
+    }
+
+    function renderRekapGuruSiswa() {
+      const filterKls = document.getElementById('filterKelasRekapGuru').value;
+      const filterMpl = document.getElementById('filterMapelRekapGuru').value;
+
+      const presensiSaya = appData.rawPresensiSiswa.filter(p => {
+        return p.usernameGuru === currentUser.username &&
+               (filterKls === 'ALL' || p.kelas === filterKls) &&
+               (filterMpl === 'ALL' || p.mapel === filterMpl);
+      });
+
+      const listSiswa = filterKls === 'ALL' ? appData.siswa : appData.siswa.filter(s => s.kelas === filterKls);
+      document.getElementById('tbodyRekapGuruSiswa').innerHTML = listSiswa.map((s, idx) => {
+        const logs = presensiSaya.filter(p => p.namaSiswa === s.nama && p.kelas === s.kelas);
+        const h = logs.filter(p => p.status === 'Hadir').length;
+        const iz = logs.filter(p => p.status === 'Izin').length;
+        const sk = logs.filter(p => p.status === 'Sakit').length;
+        const al = logs.filter(p => p.status === 'Alfa').length;
+        return `
+          <tr>
+            <td>${idx + 1}</td><td>${s.nisn}</td><td class="text-start fw-semibold">${s.nama}</td><td>${s.kelas}</td>
+            <td class="fw-bold text-success">${h}</td>
+            <td class="fw-bold text-warning">${iz}</td>
+            <td class="fw-bold text-info">${sk}</td>
+            <td class="fw-bold text-danger">${al}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    function renderRekapGuruPribadi() {
+      const logs = appData.rawAbsenGuru.filter(a => a.username === currentUser.username);
+      document.getElementById('sumGuruHadir').innerText = logs.filter(a => a.status === 'Hadir' || a.status === 'Hadir Mengajar').length;
+      document.getElementById('sumGuruIzin').innerText = logs.filter(a => a.status === 'Izin').length;
+      document.getElementById('sumGuruSakit').innerText = logs.filter(a => a.status === 'Sakit').length;
+      document.getElementById('sumGuruAlfa').innerText = logs.filter(a => a.status === 'Alfa').length;
+    }
+
+    async function kirimAbsenGuru(status) {
+      const res = await callAPI('absenGuru', { username: currentUser.username, namaGuru: currentUser.nama, status: status });
+      alert(res.message); await refreshAllData();
+    }
+
+    function renderSiswaKelasGuru() {
+      const kls = document.getElementById('guruKelas').value;
+      const tbody = document.getElementById('tbodyAbsenSiswaGuru');
+      const list = appData.siswa.filter(s => s.kelas === kls);
+      if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Tidak ada murid di kelas ini.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map((s, idx) => `
+        <tr class="row-murid">
+          <td class="text-center">${idx + 1}</td>
+          <td class="fw-semibold nama-murid">${s.nama}</td>
+          <td class="text-center">
+            <div class="btn-group btn-group-sm">
+              <input type="radio" class="btn-check" name="st-${idx}" id="h-${idx}" value="Hadir" checked>
+              <label class="btn btn-outline-success" for="h-${idx}">Hadir</label>
+              <input type="radio" class="btn-check" name="st-${idx}" id="s-${idx}" value="Sakit">
+              <label class="btn btn-outline-info" for="s-${idx}">Sakit</label>
+              <input type="radio" class="btn-check" name="st-${idx}" id="i-${idx}" value="Izin">
+              <label class="btn btn-outline-warning" for="i-${idx}">Izin</label>
+              <input type="radio" class="btn-check" name="st-${idx}" id="a-${idx}" value="Alfa">
+              <label class="btn btn-outline-danger" for="a-${idx}">Alfa</label>
+            </div>
+          </td>
+        </tr>`).join('');
+    }
+
+    async function kirimJurnalGuru() {
+      const kelas = document.getElementById('guruKelas').value;
+      const mapel = document.getElementById('guruMapel').value;
+      const materi = document.getElementById('guruMateri').value;
+      const tugas = document.getElementById('guruTugas').value;
+      if (!kelas || !mapel || !materi) return alert("Pilih Kelas, Mapel, dan isi Materi!");
+
+      const presensi = [];
+      document.querySelectorAll('.row-murid').forEach(r => {
+        presensi.push({
+          namaSiswa: r.querySelector('.nama-murid').innerText,
+          status: r.querySelector('input[type="radio"]:checked').value
+        });
+      });
+
+      const btn = document.getElementById('btnKirimJurnal');
+      btn.disabled = true; btn.innerText = "Menyimpan...";
+      const res = await callAPI('simpanJurnal', { usernameGuru: currentUser.username, namaGuru: currentUser.nama, kelas, mapel, materi, tugas, presensi });
+      btn.disabled = false; btn.innerText = "Simpan Jurnal & Kehadiran";
+      alert(res.message);
+      document.getElementById('guruMateri').value = '';
+      document.getElementById('guruTugas').value = '';
+      await refreshAllData();
+    }
+
+    function tampilkanDetailEditAbsen() {
+      const idx = document.getElementById('selectRiwayatJurnal').value;
+      const area = document.getElementById('areaEditPresensiDetail');
+      if (idx === "") return area.classList.add('hidden');
+
+      const riwayat = appData.riwayatJurnal[idx];
+      area.classList.remove('hidden');
+      document.getElementById('tbodyEditPresensi').innerHTML = riwayat.siswa.map(s => `
+        <tr class="row-edit-absen" data-id="${s.idPresensi}">
+          <td class="fw-semibold">${s.namaSiswa}</td>
+          <td>
+            <select class="form-select form-select-sm status-baru">
+              <option value="Hadir" ${s.status === 'Hadir' ? 'selected' : ''}>Hadir</option>
+              <option value="Sakit" ${s.status === 'Sakit' ? 'selected' : ''}>Sakit</option>
+              <option value="Izin" ${s.status === 'Izin' ? 'selected' : ''}>Izin</option>
+              <option value="Alfa" ${s.status === 'Alfa' ? 'selected' : ''}>Alfa</option>
+            </select>
+          </td>
+        </tr>`).join('');
+    }
+
+    async function simpanPerubahanAbsen() {
+      const updates = [];
+      document.querySelectorAll('.row-edit-absen').forEach(r => {
+        updates.push({
+          idPresensi: r.getAttribute('data-id'),
+          status: r.querySelector('.status-baru').value
+        });
+      });
+      const res = await callAPI('updateAbsen', { updates: updates });
+      alert(res.message); await refreshAllData();
+    }
+
+    function simpanProfilGuru() {
+      const passBaru = document.getElementById('guruPassBaru').value;
+      const fileFoto = document.getElementById('fileFotoGuru').files[0];
+
+      const btn = document.getElementById('btnSimpanProfilGuru');
+      btn.disabled = true; btn.innerText = "Menyimpan...";
+
+      compressImageToBase64(fileFoto, 150, async function(fotoB64) {
+        const res = await callAPI('updateProfil', { username: currentUser.username, passwordBaru: passBaru, fotoBase64: fotoB64 });
+        btn.disabled = false; btn.innerText = "Simpan Foto & Password";
+        alert(res.message);
+        document.getElementById('guruPassBaru').value = '';
+        await refreshAllData();
+      });
+    }
+
+    // ================= GENERATE MATRIKS TANGGAL & UNDUH PDF/EXCEL =================
+    function unduhMatriksSiswa(format, role) {
+      let fKelas = 'ALL', fGuru = 'ALL', fMapel = 'ALL';
+      let namaGuruTTD = currentUser.nama;
+      let nipGuruTTD = currentUser.nip;
+
+      if (role === 'admin') {
+        fKelas = document.getElementById('filterKelasRekapAdmin').value;
+        fGuru = document.getElementById('filterGuruRekapAdmin').value;
+        fMapel = document.getElementById('filterMapelRekapAdmin').value;
+        if (fGuru !== 'ALL') {
+          const gObj = appData.guru.find(g => g.username === fGuru);
+          if (gObj) { namaGuruTTD = gObj.nama; nipGuruTTD = gObj.nip; }
+        } else {
+          namaGuruTTD = "Wali Kelas / Koordinator"; nipGuruTTD = "-";
+        }
+      } else {
+        fKelas = document.getElementById('filterKelasRekapGuru').value;
+        fGuru = currentUser.username;
+        fMapel = document.getElementById('filterMapelRekapGuru').value;
+      }
+
+      const logsFiltered = appData.rawPresensiSiswa.filter(p => {
+        return (fKelas === 'ALL' || p.kelas === fKelas) &&
+               (fGuru === 'ALL' || p.usernameGuru === fGuru) &&
+               (fMapel === 'ALL' || p.mapel === fMapel);
+      });
+
+      if (!logsFiltered.length) return alert("Belum ada data presensi pada filter yang dipilih!");
+
+      const sesiMap = new Map();
+      logsFiltered.forEach(l => {
+        if (!sesiMap.has(l.idJurnal)) {
+          sesiMap.set(l.idJurnal, { id: l.idJurnal, tanggal: l.tanggal, jam: l.jam });
+        }
+      });
+      const daftarSesi = Array.from(sesiMap.values());
+      const periodeStr = `${daftarSesi[0].tanggal} s/d ${daftarSesi[daftarSesi.length - 1].tanggal}`;
+      const judulLaporan = `Presensi ${fKelas === 'ALL' ? 'Semua Kelas' : fKelas} - ${fMapel === 'ALL' ? 'Semua Mapel' : fMapel}`;
+
+      const listSiswa = fKelas === 'ALL' ? appData.siswa : appData.siswa.filter(s => s.kelas === fKelas);
+
+      const headerCols = ['NISN', 'Nama'];
+      daftarSesi.forEach(s => headerCols.push(`${s.tanggal}\n${s.jam}`));
+      headerCols.push('H', 'I', 'S', 'A');
+
+      const bodyRows = listSiswa.map(siswa => {
+        let h = 0, i = 0, s = 0, a = 0;
+        const row = [siswa.nisn, siswa.nama];
+
+        daftarSesi.forEach(sesi => {
+          const log = logsFiltered.find(l => l.idJurnal === sesi.id && l.namaSiswa === siswa.nama);
+          const kode = log ? kodeHuruf(log.status) : '';
+          if (kode === 'H') h++;
+          else if (kode === 'I') i++;
+          else if (kode === 'S') s++;
+          else if (kode === 'A') a++;
+          row.push(kode);
+        });
+
+        row.push(h, i, s, a);
+        return row;
+      });
+
+      if (format === 'excel') {
+        const aoa = [[`Periode: ${periodeStr}`], [judulLaporan], [], headerCols, ...bodyRows];
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Presensi");
+        XLSX.writeFile(wb, `${judulLaporan}.xlsx`);
+      } else {
+        cetakPDFMatriks(judulLaporan, periodeStr, headerCols, bodyRows, namaGuruTTD, nipGuruTTD);
+      }
+    }
+
+    function unduhMatriksGuru(format, role) {
+      let targetGuru = [];
+      let namaGuruTTD = currentUser.nama;
+      let nipGuruTTD = currentUser.nip;
+
+      if (role === 'admin') {
+        const fGuru = document.getElementById('filterGuruAdminGuru').value;
+        targetGuru = fGuru === 'ALL' ? appData.guru : appData.guru.filter(g => g.username === fGuru);
+        namaGuruTTD = "Admin / Kurikulum"; nipGuruTTD = "-";
+      } else {
+        targetGuru = appData.guru.filter(g => g.username === currentUser.username);
+      }
+
+      const logsFiltered = appData.rawAbsenGuru.filter(a => targetGuru.some(g => g.username === a.username));
+      if (!logsFiltered.length) return alert("Belum ada data presensi guru!");
+
+      const tglSet = Array.from(new Set(logsFiltered.map(l => l.tanggal)));
+      const periodeStr = `${tglSet[0]} s/d ${tglSet[tglSet.length - 1]}`;
+      const judulLaporan = `Presensi Kehadiran Guru - ${appData.pengaturan.namaSekolah}`;
+
+      const headerCols = ['NIP', 'Nama Guru', ...tglSet, 'H', 'I', 'S', 'A'];
+      const bodyRows = targetGuru.map(g => {
+        let h = 0, i = 0, s = 0, a = 0;
+        const row = [g.nip, g.nama];
+        tglSet.forEach(tgl => {
+          const log = logsFiltered.find(l => l.username === g.username && l.tanggal === tgl);
+          const kode = log ? kodeHuruf(log.status) : '';
+          if (kode === 'H') h++;
+          else if (kode === 'I') i++;
+          else if (kode === 'S') s++;
+          else if (kode === 'A') a++;
+          row.push(kode);
+        });
+        row.push(h, i, s, a);
+        return row;
+      });
+
+      if (format === 'excel') {
+        const aoa = [[`Periode: ${periodeStr}`], [judulLaporan], [], headerCols, ...bodyRows];
+        const ws = XLSX.utils.aoa_to_sheet(aoa);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Presensi_Guru");
+        XLSX.writeFile(wb, `Presensi_Guru_${periodeStr.replace(/\//g,'-')}.xlsx`);
+      } else {
+        cetakPDFMatriks(judulLaporan, periodeStr, headerCols, bodyRows, namaGuruTTD, nipGuruTTD);
+      }
+    }
+
+    function cetakPDFMatriks(judul, periode, headers, rows, namaGuruTTD, nipGuruTTD) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF('l', 'mm', 'a4');
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Periode: ${periode}`, 14, 14);
+
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.text(judul, 14, 20);
+
+      doc.autoTable({
+        startY: 25,
+        head: [headers],
+        body: rows,
+        theme: 'grid',
+        styles: { fontSize: 7.5, cellPadding: 1.5, halign: 'center', valign: 'middle' },
+        headStyles: { fillColor: [240, 240, 240], textColor: [20, 20, 20], fontStyle: 'bold', lineWidth: 0.2 },
+        columnStyles: {
+          0: { halign: 'left', cellWidth: 22 },
+          1: { halign: 'left', cellWidth: 42 }
+        },
+        didParseCell: function(data) {
+          if (data.section === 'body' && data.column.index >= 2) {
+            const val = String(data.cell.raw);
+            if (val === 'A') { data.cell.styles.textColor = [220, 38, 38]; data.cell.styles.fontStyle = 'bold'; }
+            if (val === 'S') { data.cell.styles.textColor = [2, 132, 199]; data.cell.styles.fontStyle = 'bold'; }
+            if (val === 'I') { data.cell.styles.textColor = [217, 119, 6]; data.cell.styles.fontStyle = 'bold'; }
+          }
+        }
+      });
+
+      let finalY = doc.lastAutoTable.finalY + 12;
+      if (finalY > 170) { doc.addPage(); finalY = 20; }
+
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "normal");
+
+      doc.text("Kepala Sekolah", 35, finalY);
+      doc.setFont("helvetica", "bold");
+      doc.text(appData.pengaturan.namaKepsek || "Kepala Sekolah", 35, finalY + 20);
+      doc.setFont("helvetica", "normal");
+      doc.text(`NIP. ${appData.pengaturan.nipKepsek || "-"}`, 35, finalY + 25);
+
+      doc.text("Guru", 210, finalY);
+      doc.setFont("helvetica", "bold");
+      doc.text(namaGuruTTD, 210, finalY + 20);
+      doc.setFont("helvetica", "normal");
+      doc.text(`NIP. ${nipGuruTTD}`, 210, finalY + 25);
+
+      doc.save(`${judul}.pdf`);
+    }
+
+    function exportMasterExcel(jenis) {
+      const data = jenis === 'guru' 
+        ? appData.guru.map((g, i) => ({ No: i + 1, Nama_Guru: g.nama, NIP: g.nip, Username: g.username }))
+        : appData.siswa.map((s, i) => ({ No: i + 1, NISN: s.nisn, Nama_Murid: s.nama, Kelas: s.kelas }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, jenis.toUpperCase());
+      XLSX.writeFile(wb, `Data_${jenis}_${appData.pengaturan.namaSekolah}.xlsx`);
+    }
+
+    function exportMasterPDF(jenis) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.text(`Data ${jenis.toUpperCase()} - ${appData.pengaturan.namaSekolah}`, 14, 15);
+      if (jenis === 'guru') {
+        doc.autoTable({ startY: 22, head: [['No', 'Nama Guru', 'NIP', 'Username']], body: appData.guru.map((g, i) => [i + 1, g.nama, g.nip, g.username]) });
+      } else {
+        doc.autoTable({ startY: 22, head: [['No', 'NISN', 'Nama Murid', 'Kelas']], body: appData.siswa.map((s, i) => [i + 1, s.nisn, s.nama, s.kelas]) });
+      }
+      doc.save(`Data_${jenis}.pdf`);
+    }
+  </script>
+</body>
+</html>
